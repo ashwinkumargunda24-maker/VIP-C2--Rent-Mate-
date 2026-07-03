@@ -1,7 +1,14 @@
 import React from "react";
 import { getImageUrl } from "../utils/api";
 
-const PropertyCard = ({ property, onViewDetails, onBook }) => {
+const PropertyCard = ({
+  property,
+  onViewDetails,
+  onBook,
+  isMyProperty = false,
+  onEdit,
+  onDelete,
+}) => {
   return (
     <article className="property-card">
       {property.image ? (
@@ -23,12 +30,23 @@ const PropertyCard = ({ property, onViewDetails, onBook }) => {
 
         <div className="property-card-tags">
           <span className="badge badge-type">{property.propertyType}</span>
+          {isMyProperty && <span className="badge badge-mine">My Property</span>}
         </div>
 
         <div className="property-card-actions">
           <button type="button" className="btn btn-secondary btn-sm" onClick={() => onViewDetails?.(property)}>
             Details
           </button>
+          {isMyProperty && onEdit && (
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => onEdit(property)}>
+              Edit
+            </button>
+          )}
+          {isMyProperty && onDelete && (
+            <button type="button" className="btn btn-danger btn-sm" onClick={() => onDelete(property._id)}>
+              Delete
+            </button>
+          )}
           {onBook && (
             <button type="button" className="btn btn-primary btn-sm" onClick={() => onBook(property)}>
               Schedule Visit

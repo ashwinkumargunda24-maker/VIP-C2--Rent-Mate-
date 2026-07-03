@@ -154,11 +154,21 @@ const updateProperty = async (req, res) => {
 
 const deleteProperty = async (req, res) => {
   try {
-    const property = await Property.findByIdAndDelete(req.params.id);
+    const { ownerId } = req.body;
+    if (!ownerId) {
+      return res.status(400).json({ message: "ownerId is required" });
+    }
 
-    if (!property) {
+    const existingProperty = await Property.findById(req.params.id);
+    if (!existingProperty) {
       return res.status(404).json({ message: "Property not found" });
     }
+
+    if (existingProperty.owner?.toString() !== ownerId.toString()) {
+      return res.status(403).json({ message: "You can only delete your own properties" });
+    }
+
+    const property = await Property.findByIdAndDelete(req.params.id);
 
     await deleteImageFromGridFS(property.image);
 

@@ -50,9 +50,13 @@ const OwnerAllProperties = () => {
 
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this property?")) return;
+    const user = getStoredUser();
+    if (!user?._id) return;
 
     try {
-      await axios.delete(`${API_URL}/api/owners/property/${id}`);
+      await axios.delete(`${API_URL}/api/owners/property/${id}`, {
+        data: { ownerId: user._id },
+      });
       setProperties((prev) => prev.filter((p) => p._id !== id));
     } catch {
       alert("Failed to delete property.");
@@ -160,7 +164,7 @@ const OwnerAllProperties = () => {
                       Open in Maps
                     </a>
                   )}
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => openEditModal(property)}>
+                  <button type="button" className="btn btn-primary btn-sm" onClick={() => openEditModal(property)}>
                     Edit
                   </button>
                   <button type="button" className="btn btn-danger btn-sm" onClick={() => handleDelete(property._id)}>

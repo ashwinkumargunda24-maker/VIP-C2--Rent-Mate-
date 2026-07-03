@@ -236,6 +236,10 @@ const bookProperty = async (req, res) => {
       return res.status(404).json({ message: "Property not found" });
     }
 
+    if (propertyDoc.owner?.toString() === user.toString()) {
+      return res.status(400).json({ message: "You cannot schedule a visit for your own property." });
+    }
+
     const listedPrice = propertyDoc.price;
     const parsedProposed = proposedPrice ? Number(proposedPrice) : null;
 

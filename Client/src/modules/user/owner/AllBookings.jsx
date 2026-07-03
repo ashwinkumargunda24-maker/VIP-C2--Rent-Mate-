@@ -157,19 +157,13 @@ const OwnerAllBookings = () => {
                     <div className="negotiation-box">
                       <div className="negotiation-prices">
                         <div>
-                          <span className="booking-info-label">Listed Price</span>
+                          <span className="booking-info-label">Original Price</span>
                           <span className="negotiation-listed">₹ {(booking.listedPrice || booking.property?.price)?.toLocaleString()}</span>
                         </div>
                         <div className="negotiation-arrow">→</div>
                         <div>
-                          <span className="booking-info-label">Renter's Offer</span>
+                          <span className="booking-info-label">Final Requested Price</span>
                           <span className="negotiation-offered">₹ {booking.proposedPrice?.toLocaleString()}</span>
-                        </div>
-                        <div>
-                          <span className="booking-info-label">You Save</span>
-                          <span className="negotiation-savings">
-                            ₹ {((booking.listedPrice || booking.property?.price) - booking.proposedPrice)?.toLocaleString()}
-                          </span>
                         </div>
                       </div>
                     </div>
