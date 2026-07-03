@@ -107,13 +107,44 @@ const getOwnerBookings = async (req, res) => {
 
 const updateProperty = async (req, res) => {
   try {
-    const property = await Property.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
+    const { ownerId, title, address, city, price, propertyType, description, mapLink } = req.body;
+
+    if (!ownerId) {
+      return res.status(400).json({ message: "ownerId is required" });
+    }
+
+    const property = await Property.findById(req.params.id);
 
     if (!property) {
       return res.status(404).json({ message: "Property not found" });
     }
+
+    if (property.owner?.toString() !== ownerId.toString()) {
+      return res.status(403).json({ message: "You can only edit your own properties" });
+    }
+
+    const trimmedMapLink = (mapLink || "").trim();
+    if (trimmedMapLink && !isValidGoogleMapsLink(trimmedMapLink)) {
+      return res.status(400).json({
+        message: "Please provide a valid Google Maps link (https://maps.google.com or https://maps.app.goo.gl)",
+      });
+    }
+
+    if (req.file) {
+      const newImagePath = await uploadImageToGridFS(req.file);
+      await deleteImageFromGridFS(property.image);
+      property.image = newImagePath;
+    }
+
+    property.title = title ?? property.title;
+    property.address = address ?? property.address;
+    property.city = city ?? property.city;
+    property.price = price ?? property.price;
+    property.propertyType = propertyType ?? property.propertyType;
+    property.description = description ?? property.description;
+    property.mapLink = trimmedMapLink || undefined;
+
+    await property.save();
 
     res.status(200).json(property);
   } catch (error) {
