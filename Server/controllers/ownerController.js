@@ -1,6 +1,43 @@
 const Property = require("../models/PropertySchema");
 const Booking = require("../models/BookingSchema");
 const { isValidGoogleMapsLink } = require("../utils/validation");
+const { getGridFSBucket } = require("../config/gridfs");
+const mongoose = require("mongoose");
+
+const uploadImageToGridFS = (file) =>
+  new Promise((resolve, reject) => {
+    if (!file) {
+      resolve("");
+      return;
+    }
+
+    const bucket = getGridFSBucket();
+    const filename = `${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`;
+    const uploadStream = bucket.openUploadStream(filename, {
+      contentType: file.mimetype,
+      metadata: {
+        originalname: file.originalname,
+      },
+    });
+
+    uploadStream.on("error", reject);
+    uploadStream.on("finish", () => resolve(`api/files/${uploadStream.id.toString()}`));
+    uploadStream.end(file.buffer);
+  });
+
+const deleteImageFromGridFS = async (imagePath) => {
+  if (!imagePath || !imagePath.startsWith("api/files/")) return;
+
+  const fileId = imagePath.replace("api/files/", "");
+  if (!mongoose.Types.ObjectId.isValid(fileId)) return;
+
+  try {
+    const bucket = getGridFSBucket();
+    await bucket.delete(new mongoose.Types.ObjectId(fileId));
+  } catch {
+    // Ignore missing file cleanup errors.
+  }
+};
 
 const addProperty = async (req, res) => {
   try {
@@ -12,9 +49,7 @@ const addProperty = async (req, res) => {
       });
     }
 
-    const imagePath = req.file
-      ? req.file.path.replace(/\\/g, "/")
-      : "";
+    const imagePath = await uploadImageToGridFS(req.file);
 
     const newProperty = new Property({
       title: req.body.title,
@@ -93,6 +128,8 @@ const deleteProperty = async (req, res) => {
     if (!property) {
       return res.status(404).json({ message: "Property not found" });
     }
+
+    await deleteImageFromGridFS(property.image);
 
     res.status(200).json({ message: "Property deleted successfully" });
   } catch (error) {
