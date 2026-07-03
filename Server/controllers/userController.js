@@ -2,14 +2,158 @@ const bcrypt = require("bcryptjs");
 const User = require("../models/UserSchema");
 const Property = require("../models/PropertySchema");
 const Booking = require("../models/BookingSchema");
+const RegistrationOtp = require("../models/RegistrationOtpSchema");
+const { sendOtpEmail } = require("../utils/mailService");
+const { sendOtpSms } = require("../utils/smsService");
+const {
+  normalizePhone,
+  generateOtp,
+  hashOtp,
+  verifyOtp,
+  getOtpExpiry,
+  getBlockUntil,
+  isBlocked,
+  blockRemainingMinutes,
+  MAX_RESENDS,
+  RESEND_BLOCK_MINUTES,
+} = require("../utils/otpUtils");
+
+const sendRegistrationOtp = async (req, res) => {
+  try {
+    const { email, phone, name, isResend } = req.body;
+
+    if (!email || !phone) {
+      return res.status(400).json({ message: "Email and phone are required" });
+    }
+
+    const normalizedPhone = normalizePhone(phone);
+    if (normalizedPhone.length < 10) {
+      return res.status(400).json({ message: "Please enter a valid phone number" });
+    }
+
+    const existingUser = await User.findOne({
+      $or: [{ email: email.toLowerCase() }, { phone: normalizedPhone }],
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        message:
+          existingUser.email === email.toLowerCase()
+            ? "Email already registered"
+            : "Phone number already registered",
+      });
+    }
+
+    let otpRecord = await RegistrationOtp.findOne({ phone: normalizedPhone });
+
+    if (isBlocked(otpRecord)) {
+      const mins = blockRemainingMinutes(otpRecord.blockedUntil);
+      return res.status(429).json({
+        message: `Too many resend attempts. Try again in ${mins} minute(s).`,
+        blockedUntil: otpRecord.blockedUntil,
+        resendsRemaining: 0,
+      });
+    }
+
+    if (isResend) {
+      if (!otpRecord) {
+        return res.status(400).json({ message: "Request an OTP first before resending." });
+      }
+
+      if (otpRecord.resendCount >= MAX_RESENDS) {
+        otpRecord.blockedUntil = getBlockUntil();
+        await otpRecord.save();
+        return res.status(429).json({
+          message: `Maximum resend limit reached. Try again in ${RESEND_BLOCK_MINUTES} minutes.`,
+          blockedUntil: otpRecord.blockedUntil,
+          resendsRemaining: 0,
+        });
+      }
+
+      otpRecord.resendCount += 1;
+    } else if (otpRecord) {
+      otpRecord.resendCount = 0;
+      otpRecord.blockedUntil = null;
+    }
+
+    const otp = generateOtp();
+    const otpHash = await hashOtp(otp);
+    const expiresAt = getOtpExpiry();
+
+    if (otpRecord) {
+      otpRecord.email = email.toLowerCase();
+      otpRecord.otpHash = otpHash;
+      otpRecord.expiresAt = expiresAt;
+      if (!isResend) {
+        otpRecord.resendCount = 0;
+        otpRecord.blockedUntil = null;
+      }
+      await otpRecord.save();
+    } else {
+      otpRecord = await RegistrationOtp.create({
+        phone: normalizedPhone,
+        email: email.toLowerCase(),
+        otpHash,
+        expiresAt,
+        resendCount: 0,
+      });
+    }
+
+    await Promise.all([
+      sendOtpEmail(email.toLowerCase(), otp, name),
+      sendOtpSms(normalizedPhone, otp),
+    ]);
+
+    const resendsRemaining = Math.max(0, MAX_RESENDS - otpRecord.resendCount);
+
+    res.status(200).json({
+      message: isResend
+        ? "OTP resent to your email and phone."
+        : "OTP sent to your email and phone.",
+      resendsRemaining,
+      expiresInMinutes: 10,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 const signup = async (req, res) => {
   try {
-    const { name, email, password, phone, role } = req.body;
+    const { name, email, password, phone, role, otp } = req.body;
 
-    const existingUser = await User.findOne({ email });
+    if (!name || !email || !password || !phone || !otp) {
+      return res.status(400).json({ message: "All fields including OTP are required" });
+    }
+
+    const normalizedPhone = normalizePhone(phone);
+    const normalizedEmail = email.toLowerCase();
+
+    const existingUser = await User.findOne({
+      $or: [{ email: normalizedEmail }, { phone: normalizedPhone }],
+    });
+
     if (existingUser) {
-      return res.status(400).json({ message: "Email already registered" });
+      return res.status(400).json({ message: "Email or phone already registered" });
+    }
+
+    const otpRecord = await RegistrationOtp.findOne({ phone: normalizedPhone });
+
+    if (!otpRecord) {
+      return res.status(400).json({ message: "No OTP found. Please request an OTP first." });
+    }
+
+    if (otpRecord.expiresAt < new Date()) {
+      return res.status(400).json({ message: "OTP has expired. Please request a new one." });
+    }
+
+    if (otpRecord.email !== normalizedEmail) {
+      return res.status(400).json({ message: "Email does not match the OTP request." });
+    }
+
+    const otpValid = await verifyOtp(String(otp).trim(), otpRecord.otpHash);
+    if (!otpValid) {
+      return res.status(400).json({ message: "Invalid OTP. Please try again." });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -17,11 +161,13 @@ const signup = async (req, res) => {
 
     const user = await User.create({
       name,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
-      phone,
+      phone: normalizedPhone,
       role: userRole,
     });
+
+    await RegistrationOtp.deleteOne({ phone: normalizedPhone });
 
     const userResponse = user.toObject();
     delete userResponse.password;
@@ -157,6 +303,7 @@ const forgotPassword = async (req, res) => {
 };
 
 module.exports = {
+  sendRegistrationOtp,
   signup,
   login,
   getProperties,

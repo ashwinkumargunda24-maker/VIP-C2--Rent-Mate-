@@ -41,6 +41,10 @@ const propertySchema = new mongoose.Schema(
     image: {
       type: String,
     },
+
+    mapLink: {
+      type: String,
+    },
   },
   {
     timestamps: true,

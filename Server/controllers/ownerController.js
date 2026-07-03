@@ -1,8 +1,17 @@
 const Property = require("../models/PropertySchema");
 const Booking = require("../models/BookingSchema");
+const { isValidGoogleMapsLink } = require("../utils/validation");
 
 const addProperty = async (req, res) => {
   try {
+    const mapLink = req.body.mapLink?.trim() || "";
+
+    if (mapLink && !isValidGoogleMapsLink(mapLink)) {
+      return res.status(400).json({
+        message: "Please provide a valid Google Maps link (https://maps.google.com or https://maps.app.goo.gl)",
+      });
+    }
+
     const imagePath = req.file
       ? req.file.path.replace(/\\/g, "/")
       : "";
@@ -16,6 +25,7 @@ const addProperty = async (req, res) => {
       propertyType: req.body.propertyType,
       description: req.body.description,
       image: imagePath,
+      mapLink: mapLink || undefined,
     });
 
     await newProperty.save();

@@ -949,6 +949,16 @@
   margin: 0.5rem 0 0;
 }
 
+.map-link {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.map-link:hover {
+  color: var(--primary-dark);
+}
+
 .negotiation-box {
   background: linear-gradient(135deg, #fffbeb, #fef3c7);
   border: 1px solid #fde68a;

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 const {
+  sendRegistrationOtp,
   signup,
   login,
   getProperties,
@@ -10,6 +11,7 @@ const {
   forgotPassword,
 } = require("../controllers/userController");
 
+router.post("/send-registration-otp", sendRegistrationOtp);
 router.post("/signup", signup);
 router.post("/login", login);
 router.post("/forgot-password", forgotPassword);

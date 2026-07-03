@@ -19,7 +19,7 @@ const AddProperty = () => {
     city: "",
     price: "",
     propertyType: "House",
-    description: "",
+    mapLink: "",
   });
 
   const isSuccess = message.includes("successfully");
@@ -48,7 +48,7 @@ const AddProperty = () => {
       });
 
       setMessage("Property added successfully!");
-      setFormData({ title: "", address: "", city: "", price: "", propertyType: "House", description: "" });
+      setFormData({ title: "", address: "", city: "", price: "", propertyType: "House", description: "", mapLink: "" });
       setImage(null);
     } catch (error) {
       setMessage(error.response?.data?.message || "Failed to add property");
@@ -101,6 +101,20 @@ const AddProperty = () => {
                   <option value="Villa">Villa</option>
                 </select>
               </div>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="mapLink">Google Maps Link (optional)</label>
+              <input
+                id="mapLink"
+                type="url"
+                name="mapLink"
+                className="form-input"
+                placeholder="https://maps.google.com/..."
+                value={formData.mapLink}
+                onChange={handleChange}
+              />
+              <p className="negotiate-hint">Paste a Google Maps link so renters can view the exact location.</p>
             </div>
 
             <div className="form-group">

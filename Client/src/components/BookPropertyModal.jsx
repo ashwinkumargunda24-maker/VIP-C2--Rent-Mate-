@@ -78,6 +78,14 @@ const BookPropertyModal = ({ property, onClose, onSuccess }) => {
           <span className="price-highlight-type">/ month</span>
         </div>
 
+        {property.mapLink && (
+          <p style={{ marginBottom: "1rem" }}>
+            <a href={property.mapLink} target="_blank" rel="noopener noreferrer" className="map-link">
+              View property location on Google Maps
+            </a>
+          </p>
+        )}
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="visitDate">Visit Date</label>
